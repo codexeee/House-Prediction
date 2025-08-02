@@ -7,6 +7,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
+import sweetviz as sv
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -128,7 +129,7 @@ model, X_train, X_test, y_train, y_test, scaler = train_models(df)
 
 # --- Sidebar Navigation ---
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Home", "Data Explorer", "Visualizations", "Model Insights", "Price Predictor"])
+page = st.sidebar.radio("Go to", ["Home", "Data Explorer", "Visualizations", "Comparative Analysis", "Model Insights", "Price Predictor"])
 
 # --- Home Page ---
 if page == "Home":
@@ -192,6 +193,26 @@ elif page == "Visualizations":
         sns.boxplot(data=df_display, x='furnishingstatus', y='price', ax=ax)
         ax.set_title("Price Distribution by Furnishing Status")
         st.pyplot(fig)
+
+# --- Comparative Analysis Page ---
+elif page == "Comparative Analysis":
+    st.header("Comparative Variable Analysis")
+    st.markdown("Select two variables to generate a detailed comparison report.")
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        var1 = st.selectbox("Select the first variable:", df_display.columns)
+    with col2:
+        var2 = st.selectbox("Select the second variable:", df_display.columns)
+        
+    if st.button("Generate Comparison Report"):
+        if var1 and var2:
+            comparison_report = sv.compare_intra(df_display, df_display[var1] == "yes", ["Yes", "No"], var2)
+            comparison_report.show_html("comparison.html", open_browser=False)
+            with open("comparison.html", "r") as f:
+                st.components.v1.html(f.read(), height=800, scrolling=True)
+        else:
+            st.warning("Please select two variables to compare.")
 
 
 # --- Model Insights Page ---
