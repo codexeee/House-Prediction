@@ -90,13 +90,15 @@ st.markdown("""
 # --- Data Loading and Caching ---
 @st.cache_data
 def load_and_prep_data():
+    # Load the dataset
     df = pd.read_csv('Housing.csv')
     df_display = df.copy()
 
-    # Convert price to PKR
+    # Convert price to PKR for both dataframes
     df['price'] = df['price'] * INR_TO_PKR_RATE
     df_display['price'] = df_display['price'] * INR_TO_PKR_RATE
     
+    # Prepare the dataframe for the model (df)
     binary_vars = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 'airconditioning', 'prefarea']
     df[binary_vars] = df[binary_vars].apply(lambda x: x.map({'yes': 1, 'no': 0}))
 
@@ -198,31 +200,39 @@ elif page == "Visualizations":
 # --- Comparative Analysis Page ---
 elif page == "Comparative Analysis":
     st.header("Comparative Variable Analysis")
-    st.markdown("Select a binary feature and a feature to compare to generate a detailed comparison report.")
+    st.markdown("Select a binary feature to split the data, and another feature to analyze within those splits.")
     
+    # **FIX**: Only allow selection of binary (Yes/No) columns for the split
     binary_columns = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 'airconditioning', 'prefarea']
     
     col1, col2 = st.columns(2)
     with col1:
+        # This dropdown is now restricted to valid columns
         split_var = st.selectbox("Split by Feature (must be Yes/No):", binary_columns)
     with col2:
-        compare_var = st.selectbox("Feature to Compare:", df_display.columns)
+        # Allow any column to be the one analyzed
+        compare_var = st.selectbox("Feature to Analyze:", df_display.columns)
         
     if st.button("Generate Comparison Report"):
         if split_var and compare_var:
             # Create the boolean condition for the split
             condition = (df_display[split_var] == 'yes')
             
-            # Generate the report using compare_intra
-            report = sv.compare_intra(df_display, condition, ["Has " + split_var, "No " + split_var], compare_var)
-            
-            # Show the report in Streamlit
-            report.show_html("comparison.html", open_browser=False, layout='vertical')
-            
-            with open("comparison.html", "r", encoding='utf-8') as f:
-                st.components.v1.html(f.read(), height=800, scrolling=True)
+            # Check if the split results in empty dataframes
+            if condition.sum() == 0 or (~condition).sum() == 0:
+                st.error(f"The selected feature '{split_var}' does not contain both 'yes' and 'no' values to compare. Please choose another feature.")
+            else:
+                # Generate the report using compare_intra
+                report = sv.compare_intra(df_display, condition, [f"Has {split_var}", f"No {split_var}"], compare_var)
+                
+                # Save and display the report
+                report_path = "comparison_report.html"
+                report.show_html(report_path, open_browser=False, layout='vertical')
+                
+                with open(report_path, "r", encoding='utf-8') as f:
+                    st.components.v1.html(f.read(), height=800, scrolling=True)
         else:
-            st.warning("Please select two variables to compare.")
+            st.warning("Please select both a feature to split by and a feature to analyze.")
 
 
 # --- Model Insights Page ---
