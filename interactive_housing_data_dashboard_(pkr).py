@@ -304,4 +304,16 @@ elif page == "Price Predictor":
             'guestroom': 1 if guestroom == 'Yes' else 0,
             'basement': 1 if basement == 'Yes' else 0,
             'hotwaterheating': 0,
-            'airconditioning':
+            'airconditioning': 1,
+            'parking': parking,
+            'prefarea': 0,
+            'furnishing_semi-furnished': 1 if furnishing == 'semi-furnished' else 0,
+            'furnishing_unfurnished': 1 if furnishing == 'unfurnished' else 0,
+        }
+        input_df = pd.DataFrame([input_data])
+        input_df = input_df[X_train.columns]
+        
+        input_scaled = scaler.transform(input_df)
+        prediction = model.predict(input_scaled)
+        
+        st.success(f"Predicted House Price: **PKR {prediction[0]:,.0f}**")
