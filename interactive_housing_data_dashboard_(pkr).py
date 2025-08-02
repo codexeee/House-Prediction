@@ -215,15 +215,16 @@ elif page == "Comparative Analysis":
         
     if st.button("Generate Comparison Report"):
         if split_var and compare_var:
-            # Create the boolean condition for the split
-            condition = (df_display[split_var] == 'yes')
-            
-            # Check if the split results in empty dataframes
-            if condition.sum() == 0 or (~condition).sum() == 0:
+            # Create the dataframes for comparison
+            df_yes = df_display[df_display[split_var] == 'yes']
+            df_no = df_display[df_display[split_var] == 'no']
+
+            # Check if either dataframe is empty
+            if df_yes.empty or df_no.empty:
                 st.error(f"The selected feature '{split_var}' does not contain both 'yes' and 'no' values to compare. Please choose another feature.")
             else:
-                # Generate the report using compare_intra
-                report = sv.compare_intra(df_display, condition, [f"Has {split_var}", f"No {split_var}"], compare_var)
+                # Generate the report using compare, which is more robust
+                report = sv.compare([df_yes, f"Has {split_var}"], [df_no, f"No {split_var}"], target_feat=compare_var)
                 
                 # Save and display the report
                 report_path = "comparison_report.html"
@@ -303,16 +304,4 @@ elif page == "Price Predictor":
             'guestroom': 1 if guestroom == 'Yes' else 0,
             'basement': 1 if basement == 'Yes' else 0,
             'hotwaterheating': 0,
-            'airconditioning': 1,
-            'parking': parking,
-            'prefarea': 0,
-            'furnishing_semi-furnished': 1 if furnishing == 'semi-furnished' else 0,
-            'furnishing_unfurnished': 1 if furnishing == 'unfurnished' else 0,
-        }
-        input_df = pd.DataFrame([input_data])
-        input_df = input_df[X_train.columns]
-        
-        input_scaled = scaler.transform(input_df)
-        prediction = model.predict(input_scaled)
-        
-        st.success(f"Predicted House Price: **PKR {prediction[0]:,.0f}**")
+            'airconditioning':
