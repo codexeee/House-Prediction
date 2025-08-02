@@ -49,6 +49,7 @@ st.markdown("""
         box-shadow: 0 4px 8px rgba(0,0,0,0.1);
         text-align: center;
         transition: transform 0.2s;
+        margin-bottom: 20px; /* Added margin for spacing */
     }
     .metric-card:hover {
         transform: translateY(-5px);
@@ -61,6 +62,14 @@ st.markdown("""
         font-size: 24px;
         font-weight: bold;
         color: #2980b9;
+    }
+    /* Chart Containers (Frames) */
+    .chart-container {
+        background-color: #ffffff;
+        border-radius: 10px;
+        padding: 20px;
+        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
     }
     /* Buttons */
     .stButton>button {
@@ -148,7 +157,8 @@ if page == "Home":
 # --- Data Explorer Page ---
 elif page == "Data Explorer":
     st.header("Data Explorer")
-    st.dataframe(df_display)
+    st.markdown("A detailed look into the raw dataset.")
+    st.dataframe(df_display, height=500)
     
     col1, col2 = st.columns(2)
     with col1:
@@ -163,21 +173,27 @@ elif page == "Data Explorer":
 elif page == "Visualizations":
     st.header("Interactive Visualizations")
     
-    st.subheader("Price vs. Area")
-    fig_scatter = px.scatter(df_display, x='area', y='price', color='airconditioning',
-                             hover_data=['bedrooms', 'bathrooms'],
-                             title='Price vs. Area with Air Conditioning',
-                             labels={'price': 'Price (PKR)', 'area': 'Area (sq. ft.)'})
-    st.plotly_chart(fig_scatter, use_container_width=True)
+    with st.container():
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Price vs. Area")
+        fig_scatter = px.scatter(df_display, x='area', y='price', color='airconditioning',
+                                 hover_data=['bedrooms', 'bathrooms'],
+                                 title='Price vs. Area with Air Conditioning',
+                                 labels={'price': 'Price (PKR)', 'area': 'Area (sq. ft.)'})
+        st.plotly_chart(fig_scatter, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.subheader("Categorical Features vs. Price")
-    qualitative_vars = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 
-                       'airconditioning', 'prefarea', 'furnishingstatus']
-    selected_feature = st.selectbox("Select a feature:", qualitative_vars)
-    fig_box = px.box(df_display, x=selected_feature, y='price', color=selected_feature,
-                     title=f'Price Distribution by {selected_feature.title()}',
-                     labels={'price': 'Price (PKR)'})
-    st.plotly_chart(fig_box, use_container_width=True)
+    with st.container():
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Categorical Features vs. Price")
+        qualitative_vars = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 
+                           'airconditioning', 'prefarea', 'furnishingstatus']
+        selected_feature = st.selectbox("Select a feature:", qualitative_vars)
+        fig_box = px.box(df_display, x=selected_feature, y='price', color=selected_feature,
+                         title=f'Price Distribution by {selected_feature.title()}',
+                         labels={'price': 'Price (PKR)'})
+        st.plotly_chart(fig_box, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Model Insights Page ---
 elif page == "Model Insights":
@@ -194,20 +210,24 @@ elif page == "Model Insights":
     with col2:
         st.markdown(f'<div class="metric-card"><h3>RMSE (PKR)</h3><p>{rmse:,.0f}</p></div>', unsafe_allow_html=True)
 
-    st.subheader("Feature Importance")
-    feature_importance = pd.DataFrame({
-        'feature': X_train.columns,
-        'importance': np.abs(model.coef_)
-    }).sort_values('importance', ascending=False)
-    fig_importance = px.bar(feature_importance, x='importance', y='feature', orientation='h',
-                            title='Feature Importance in Regression Model')
-    st.plotly_chart(fig_importance, use_container_width=True)
+    with st.container():
+        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+        st.subheader("Feature Importance")
+        feature_importance = pd.DataFrame({
+            'feature': X_train.columns,
+            'importance': np.abs(model.coef_)
+        }).sort_values('importance', ascending=False)
+        fig_importance = px.bar(feature_importance, x='importance', y='feature', orientation='h',
+                                title='Feature Importance in Regression Model')
+        st.plotly_chart(fig_importance, use_container_width=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Price Predictor Page ---
 elif page == "Price Predictor":
     st.header("House Price Predictor")
     
     with st.form("prediction_form"):
+        st.markdown("Enter the details of the house to get a price prediction.")
         col1, col2, col3 = st.columns(3)
         with col1:
             area = st.number_input("Area (sq. ft.)", min_value=1000, max_value=20000, value=3500, step=100)
