@@ -4,5 +4,6 @@ numpy
 matplotlib
 seaborn
 scikit-learn
-sweetviz
+statsmodels
+scipy
 setuptools
