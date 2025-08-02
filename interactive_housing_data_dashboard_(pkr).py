@@ -1,20 +1,26 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import plotly.express as px
-import plotly.graph_objects as go
+import matplotlib.pyplot as plt
+import seaborn as sns
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
+import warnings
 
-# --- Page Configuration ---
+warnings.filterwarnings('ignore')
+
+# --- Page and Plot Styling ---
 st.set_page_config(
     page_title="Modern Housing Dashboard",
     page_icon="🏡",
     layout="wide",
     initial_sidebar_state="expanded",
 )
+plt.style.use('seaborn-v0_8')
+sns.set_palette("husl")
+
 
 # --- Conversion Rate ---
 INR_TO_PKR_RATE = 3.4 
@@ -62,14 +68,6 @@ st.markdown("""
         font-size: 24px;
         font-weight: bold;
         color: #2980b9;
-    }
-    /* Chart Containers (Frames) */
-    .chart-container {
-        background-color: #ffffff;
-        border-radius: 10px;
-        padding: 20px;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
     }
     /* Buttons */
     .stButton>button {
@@ -137,7 +135,6 @@ if page == "Home":
     st.title("🏡 Modern Housing Market Dashboard")
     st.markdown("An elegant and interactive platform to analyze and predict housing prices.")
     
-    # Hero Image
     st.image("https://images.pexels.com/photos/106399/pexels-photo-106399.jpeg?auto=compress&cs=tinysrgb&w=1260&h=750&dpr=1", use_column_width=True)
     
     st.header("Key Metrics at a Glance")
@@ -160,40 +157,42 @@ elif page == "Data Explorer":
     st.markdown("A detailed look into the raw dataset.")
     st.dataframe(df_display, height=500)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Data Info")
-        st.text(f"Dataset Shape: {df.shape}")
-        st.text(f"Missing Values: {df_display.isnull().sum().sum()}")
-    with col2:
-        st.subheader("Data Types")
-        st.dataframe(df_display.dtypes.astype(str), use_container_width=True)
+    st.subheader("Descriptive Statistics")
+    st.write(df_display.describe())
 
 # --- Visualizations Page ---
 elif page == "Visualizations":
     st.header("Interactive Visualizations")
     
-    with st.container():
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Price vs. Area")
-        fig_scatter = px.scatter(df_display, x='area', y='price', color='airconditioning',
-                                 hover_data=['bedrooms', 'bathrooms'],
-                                 title='Price vs. Area with Air Conditioning',
-                                 labels={'price': 'Price (PKR)', 'area': 'Area (sq. ft.)'})
-        st.plotly_chart(fig_scatter, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
 
-    with st.container():
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
-        st.subheader("Categorical Features vs. Price")
-        qualitative_vars = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 
-                           'airconditioning', 'prefarea', 'furnishingstatus']
-        selected_feature = st.selectbox("Select a feature:", qualitative_vars)
-        fig_box = px.box(df_display, x=selected_feature, y='price', color=selected_feature,
-                         title=f'Price Distribution by {selected_feature.title()}',
-                         labels={'price': 'Price (PKR)'})
-        st.plotly_chart(fig_box, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+    with col1:
+        st.subheader("Price Distribution")
+        fig, ax = plt.subplots()
+        sns.histplot(df_display['price'], kde=True, ax=ax, bins=30)
+        ax.set_title("Distribution of House Prices")
+        st.pyplot(fig)
+
+        st.subheader("Price vs. Area")
+        fig, ax = plt.subplots()
+        sns.scatterplot(data=df_display, x='area', y='price', ax=ax, alpha=0.6)
+        ax.set_title("House Price vs. Area")
+        st.pyplot(fig)
+
+    with col2:
+        st.subheader("Correlation Heatmap")
+        fig, ax = plt.subplots(figsize=(10, 8))
+        corr_matrix = df.corr()
+        sns.heatmap(corr_matrix, annot=False, cmap='coolwarm', ax=ax)
+        ax.set_title("Correlation Matrix of Features")
+        st.pyplot(fig)
+
+        st.subheader("Price by Furnishing Status")
+        fig, ax = plt.subplots()
+        sns.boxplot(data=df_display, x='furnishingstatus', y='price', ax=ax)
+        ax.set_title("Price Distribution by Furnishing Status")
+        st.pyplot(fig)
+
 
 # --- Model Insights Page ---
 elif page == "Model Insights":
@@ -210,17 +209,29 @@ elif page == "Model Insights":
     with col2:
         st.markdown(f'<div class="metric-card"><h3>RMSE (PKR)</h3><p>{rmse:,.0f}</p></div>', unsafe_allow_html=True)
 
-    with st.container():
-        st.markdown('<div class="chart-container">', unsafe_allow_html=True)
+    col1, col2 = st.columns(2)
+    with col1:
         st.subheader("Feature Importance")
         feature_importance = pd.DataFrame({
             'feature': X_train.columns,
             'importance': np.abs(model.coef_)
         }).sort_values('importance', ascending=False)
-        fig_importance = px.bar(feature_importance, x='importance', y='feature', orientation='h',
-                                title='Feature Importance in Regression Model')
-        st.plotly_chart(fig_importance, use_container_width=True)
-        st.markdown('</div>', unsafe_allow_html=True)
+        
+        fig, ax = plt.subplots(figsize=(10, 8))
+        sns.barplot(x='importance', y='feature', data=feature_importance, ax=ax)
+        ax.set_title('Feature Importance in Regression Model')
+        st.pyplot(fig)
+        
+    with col2:
+        st.subheader("Actual vs. Predicted Prices")
+        fig, ax = plt.subplots()
+        ax.scatter(y_test, y_pred, alpha=0.6)
+        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+        ax.set_xlabel('Actual Price')
+        ax.set_ylabel('Predicted Price')
+        ax.set_title('Model Predictions vs. Actual Values')
+        st.pyplot(fig)
+
 
 # --- Price Predictor Page ---
 elif page == "Price Predictor":
@@ -250,10 +261,10 @@ elif page == "Price Predictor":
             'mainroad': 1 if mainroad == 'Yes' else 0,
             'guestroom': 1 if guestroom == 'Yes' else 0,
             'basement': 1 if basement == 'Yes' else 0,
-            'hotwaterheating': 0, # Assuming no hot water by default
-            'airconditioning': 1, # Assuming AC by default
+            'hotwaterheating': 0,
+            'airconditioning': 1,
             'parking': parking,
-            'prefarea': 0, # Assuming not preferred area by default
+            'prefarea': 0,
             'furnishing_semi-furnished': 1 if furnishing == 'semi-furnished' else 0,
             'furnishing_unfurnished': 1 if furnishing == 'unfurnished' else 0,
         }
