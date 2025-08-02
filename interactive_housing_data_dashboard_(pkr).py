@@ -7,9 +7,7 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
-import sweetviz as sv
 import warnings
-import os
 
 warnings.filterwarnings('ignore')
 
@@ -200,38 +198,50 @@ elif page == "Visualizations":
 # --- Comparative Analysis Page ---
 elif page == "Comparative Analysis":
     st.header("Comparative Variable Analysis")
-    st.markdown("Select a binary feature to split the data, and another feature to analyze within those splits.")
+    st.markdown("Select a binary feature to split the data, and a numerical feature to analyze within those splits.")
     
-    # **FIX**: Only allow selection of binary (Yes/No) columns for the split
     binary_columns = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 'airconditioning', 'prefarea']
+    numerical_columns = df_display.select_dtypes(include=np.number).columns.tolist()
     
     col1, col2 = st.columns(2)
     with col1:
-        # This dropdown is now restricted to valid columns
-        split_var = st.selectbox("Split by Feature (must be Yes/No):", binary_columns)
+        split_var = st.selectbox("Split by Feature (Yes/No):", binary_columns)
     with col2:
-        # Allow any column to be the one analyzed
-        compare_var = st.selectbox("Feature to Analyze:", df_display.columns)
+        compare_var = st.selectbox("Feature to Analyze (Numerical):", numerical_columns)
         
-    if st.button("Generate Comparison Report"):
+    if st.button("Generate Comparison"):
         if split_var and compare_var:
-            # Create the dataframes for comparison
             df_yes = df_display[df_display[split_var] == 'yes']
             df_no = df_display[df_display[split_var] == 'no']
 
-            # Check if either dataframe is empty
             if df_yes.empty or df_no.empty:
                 st.error(f"The selected feature '{split_var}' does not contain both 'yes' and 'no' values to compare. Please choose another feature.")
             else:
-                # Generate the report using compare, which is more robust
-                report = sv.compare([df_yes, f"Has {split_var}"], [df_no, f"No {split_var}"], target_feat=compare_var)
+                st.subheader(f"Comparison of '{compare_var}' based on '{split_var}'")
                 
-                # Save and display the report
-                report_path = "comparison_report.html"
-                report.show_html(report_path, open_browser=False, layout='vertical')
+                col1, col2 = st.columns(2)
                 
-                with open(report_path, "r", encoding='utf-8') as f:
-                    st.components.v1.html(f.read(), height=800, scrolling=True)
+                with col1:
+                    st.markdown(f"**Group: Has {split_var}**")
+                    st.write(df_yes[[compare_var]].describe())
+                
+                with col2:
+                    st.markdown(f"**Group: No {split_var}**")
+                    st.write(df_no[[compare_var]].describe())
+                
+                st.subheader("Distribution Plot")
+                fig, ax = plt.subplots()
+                sns.kdeplot(df_yes[compare_var], ax=ax, fill=True, color="blue", label=f'Has {split_var}')
+                sns.kdeplot(df_no[compare_var], ax=ax, fill=True, color="red", label=f'No {split_var}')
+                ax.legend()
+                ax.set_title(f"Distribution of {compare_var} by {split_var}")
+                st.pyplot(fig)
+
+                st.subheader("Box Plot")
+                fig, ax = plt.subplots()
+                sns.boxplot(x=df_display[split_var], y=df_display[compare_var], ax=ax)
+                ax.set_title(f"Box Plot of {compare_var} by {split_var}")
+                st.pyplot(fig)
         else:
             st.warning("Please select both a feature to split by and a feature to analyze.")
 
