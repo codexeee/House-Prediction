@@ -137,7 +137,7 @@ model, X_train, X_test, y_train, y_test, scaler, sm_model = train_models(df)
 
 # --- Sidebar Navigation ---
 st.sidebar.title("Navigation")
-page = st.sidebar.radio("Go to", ["Home", "Data Explorer", "Visualizations", "Comparative Analysis", "Model Insights", "Price Predictor"])
+page = st.sidebar.radio("Go to", ["Home", "Data Explorer", "Distribution Analysis", "Categorical Analysis", "Comparative Analysis", "Model Insights", "Price Predictor"])
 
 # --- Home Page ---
 if page == "Home":
@@ -180,39 +180,55 @@ elif page == "Data Explorer":
     ci_df = pd.DataFrame(ci_data)
     st.dataframe(ci_df)
 
-
-# --- Visualizations Page ---
-elif page == "Visualizations":
-    st.header("Interactive Visualizations")
+# --- Distribution Analysis Page ---
+elif page == "Distribution Analysis":
+    st.header("Comprehensive Distribution Analysis")
+    st.markdown("Select a numerical variable to see its distribution against the price.")
     
-    col1, col2 = st.columns(2)
+    numerical_columns = df_display.select_dtypes(include=np.number).columns.tolist()
+    # Exclude price from the list of variables to select, as it's the target
+    variable_to_plot = st.selectbox("Select a variable to analyze:", [col for col in numerical_columns if col != 'price'])
+    
+    if variable_to_plot:
+        st.subheader(f"Joint Distribution of Price and {variable_to_plot.title()}")
+        
+        # Create the jointplot
+        g = sns.jointplot(data=df_display, x=variable_to_plot, y="price", kind="reg", 
+                          joint_kws={'line_kws':{'color':'red'}})
+        st.pyplot(g)
+        
+        st.subheader(f"Statistical Summary for {variable_to_plot.title()}")
+        summary = stats.describe(df_display[variable_to_plot])
+        st.text(summary)
 
-    with col1:
-        st.subheader("Price Distribution")
-        fig, ax = plt.subplots()
-        sns.histplot(df_display['price'], kde=True, ax=ax, bins=30)
-        ax.set_title("Distribution of House Prices")
-        st.pyplot(fig)
 
-        st.subheader("Price vs. Area")
-        fig, ax = plt.subplots()
-        sns.scatterplot(data=df_display, x='area', y='price', ax=ax, alpha=0.6)
-        ax.set_title("House Price vs. Area")
-        st.pyplot(fig)
+# --- Categorical Analysis Page ---
+elif page == "Categorical Analysis":
+    st.header("Categorical Variable Analysis")
+    st.markdown("Select a categorical variable to explore its distribution and impact on price.")
+    
+    categorical_columns = df_display.select_dtypes(include=['object']).columns.tolist()
+    
+    selected_cat_var = st.selectbox("Select a Categorical Variable:", categorical_columns)
+    
+    if selected_cat_var:
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.subheader(f"Frequency of {selected_cat_var}")
+            fig, ax = plt.subplots()
+            sns.countplot(y=df_display[selected_cat_var], ax=ax, order = df_display[selected_cat_var].value_counts().index)
+            ax.set_title(f"Distribution of {selected_cat_var}")
+            st.pyplot(fig)
 
-    with col2:
-        st.subheader("Correlation Heatmap")
-        fig, ax = plt.subplots(figsize=(10, 8))
-        corr_matrix = df.corr()
-        sns.heatmap(corr_matrix, annot=False, cmap='coolwarm', ax=ax)
-        ax.set_title("Correlation Matrix of Features")
-        st.pyplot(fig)
+        with col2:
+            st.subheader(f"Price vs. {selected_cat_var}")
+            fig, ax = plt.subplots()
+            sns.boxplot(x=df_display[selected_cat_var], y=df_display['price'], ax=ax)
+            ax.set_title(f"Price Distribution by {selected_cat_var}")
+            plt.xticks(rotation=45)
+            st.pyplot(fig)
 
-        st.subheader("Price by Furnishing Status")
-        fig, ax = plt.subplots()
-        sns.boxplot(data=df_display, x='furnishingstatus', y='price', ax=ax)
-        ax.set_title("Price Distribution by Furnishing Status")
-        st.pyplot(fig)
 
 # --- Comparative Analysis Page ---
 elif page == "Comparative Analysis":
