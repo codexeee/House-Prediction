@@ -9,6 +9,7 @@ from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 import sweetviz as sv
 import warnings
+import os
 
 warnings.filterwarnings('ignore')
 
@@ -197,19 +198,28 @@ elif page == "Visualizations":
 # --- Comparative Analysis Page ---
 elif page == "Comparative Analysis":
     st.header("Comparative Variable Analysis")
-    st.markdown("Select two variables to generate a detailed comparison report.")
+    st.markdown("Select a binary feature and a feature to compare to generate a detailed comparison report.")
+    
+    binary_columns = ['mainroad', 'guestroom', 'basement', 'hotwaterheating', 'airconditioning', 'prefarea']
     
     col1, col2 = st.columns(2)
     with col1:
-        var1 = st.selectbox("Select the first variable:", df_display.columns)
+        split_var = st.selectbox("Split by Feature (must be Yes/No):", binary_columns)
     with col2:
-        var2 = st.selectbox("Select the second variable:", df_display.columns)
+        compare_var = st.selectbox("Feature to Compare:", df_display.columns)
         
     if st.button("Generate Comparison Report"):
-        if var1 and var2:
-            comparison_report = sv.compare_intra(df_display, df_display[var1] == "yes", ["Yes", "No"], var2)
-            comparison_report.show_html("comparison.html", open_browser=False)
-            with open("comparison.html", "r") as f:
+        if split_var and compare_var:
+            # Create the boolean condition for the split
+            condition = (df_display[split_var] == 'yes')
+            
+            # Generate the report using compare_intra
+            report = sv.compare_intra(df_display, condition, ["Has " + split_var, "No " + split_var], compare_var)
+            
+            # Show the report in Streamlit
+            report.show_html("comparison.html", open_browser=False, layout='vertical')
+            
+            with open("comparison.html", "r", encoding='utf-8') as f:
                 st.components.v1.html(f.read(), height=800, scrolling=True)
         else:
             st.warning("Please select two variables to compare.")
