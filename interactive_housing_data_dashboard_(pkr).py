@@ -7,6 +7,8 @@ from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import r2_score, mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
+import statsmodels.api as sm
+from scipy import stats
 import warnings
 
 warnings.filterwarnings('ignore')
@@ -118,15 +120,20 @@ def train_models(df):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
     
     scaler = MinMaxScaler()
-    X_train[features] = scaler.fit_transform(X_train[features])
-    X_test[features] = scaler.transform(X_test[features])
+    X_train_scaled = pd.DataFrame(scaler.fit_transform(X_train), columns=features)
+    X_test_scaled = pd.DataFrame(scaler.transform(X_test), columns=features)
     
+    # Scikit-learn model for prediction
     model = LinearRegression()
-    model.fit(X_train, y_train)
+    model.fit(X_train_scaled, y_train)
     
-    return model, X_train, X_test, y_train, y_test, scaler
+    # Statsmodels for detailed analysis and confidence intervals
+    X_train_sm = sm.add_constant(X_train_scaled)
+    sm_model = sm.OLS(y_train.values, X_train_sm).fit()
+    
+    return model, X_train_scaled, X_test_scaled, y_train, y_test, scaler, sm_model
 
-model, X_train, X_test, y_train, y_test, scaler = train_models(df)
+model, X_train, X_test, y_train, y_test, scaler, sm_model = train_models(df)
 
 # --- Sidebar Navigation ---
 st.sidebar.title("Navigation")
@@ -161,6 +168,18 @@ elif page == "Data Explorer":
     
     st.subheader("Descriptive Statistics")
     st.write(df_display.describe())
+    
+    st.subheader("Confidence Intervals for Mean (95%)")
+    ci_data = []
+    numerical_cols = df_display.select_dtypes(include=np.number).columns
+    for col in numerical_cols:
+        data = df_display[col].dropna()
+        if len(data) > 1:
+            ci = stats.t.interval(0.95, len(data)-1, loc=np.mean(data), scale=stats.sem(data))
+            ci_data.append({'Variable': col, 'Lower Bound': ci[0], 'Upper Bound': ci[1]})
+    ci_df = pd.DataFrame(ci_data)
+    st.dataframe(ci_df)
+
 
 # --- Visualizations Page ---
 elif page == "Visualizations":
@@ -231,8 +250,8 @@ elif page == "Comparative Analysis":
                 
                 st.subheader("Distribution Plot")
                 fig, ax = plt.subplots()
-                sns.kdeplot(df_yes[compare_var], ax=ax, fill=True, color="blue", label=f'Has {split_var}')
-                sns.kdeplot(df_no[compare_var], ax=ax, fill=True, color="red", label=f'No {split_var}')
+                sns.kdeplot(df_yes[compare_var], ax=ax, fill=True, label=f'Has {split_var}')
+                sns.kdeplot(df_no[compare_var], ax=ax, fill=True, label=f'No {split_var}')
                 ax.legend()
                 ax.set_title(f"Distribution of {compare_var} by {split_var}")
                 st.pyplot(fig)
@@ -261,28 +280,21 @@ elif page == "Model Insights":
     with col2:
         st.markdown(f'<div class="metric-card"><h3>RMSE (PKR)</h3><p>{rmse:,.0f}</p></div>', unsafe_allow_html=True)
 
-    col1, col2 = st.columns(2)
-    with col1:
-        st.subheader("Feature Importance")
-        feature_importance = pd.DataFrame({
-            'feature': X_train.columns,
-            'importance': np.abs(model.coef_)
-        }).sort_values('importance', ascending=False)
-        
-        fig, ax = plt.subplots(figsize=(10, 8))
-        sns.barplot(x='importance', y='feature', data=feature_importance, ax=ax)
-        ax.set_title('Feature Importance in Regression Model')
-        st.pyplot(fig)
-        
-    with col2:
-        st.subheader("Actual vs. Predicted Prices")
-        fig, ax = plt.subplots()
-        ax.scatter(y_test, y_pred, alpha=0.6)
-        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
-        ax.set_xlabel('Actual Price')
-        ax.set_ylabel('Predicted Price')
-        ax.set_title('Model Predictions vs. Actual Values')
-        st.pyplot(fig)
+    st.subheader("Regression Coefficients & Confidence Intervals")
+    conf_int = sm_model.conf_int()
+    conf_int.columns = ['Lower CI', 'Upper CI']
+    params_df = pd.DataFrame({'Coefficient': sm_model.params, 'Std.Err': sm_model.bse, 'P-value': sm_model.pvalues})
+    params_df = params_df.join(conf_int)
+    st.dataframe(params_df.style.format("{:.4f}"))
+
+    st.subheader("Actual vs. Predicted Prices")
+    fig, ax = plt.subplots()
+    ax.scatter(y_test, y_pred, alpha=0.6)
+    ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+    ax.set_xlabel('Actual Price')
+    ax.set_ylabel('Predicted Price')
+    ax.set_title('Model Predictions vs. Actual Values')
+    st.pyplot(fig)
 
 
 # --- Price Predictor Page ---
@@ -308,6 +320,7 @@ elif page == "Price Predictor":
         submit_button = st.form_submit_button(label='Predict Price')
 
     if submit_button:
+        # Create a dataframe for the input
         input_data = {
             'area': area, 'bedrooms': bedrooms, 'bathrooms': bathrooms, 'stories': stories,
             'mainroad': 1 if mainroad == 'Yes' else 0,
@@ -320,10 +333,12 @@ elif page == "Price Predictor":
             'furnishing_semi-furnished': 1 if furnishing == 'semi-furnished' else 0,
             'furnishing_unfurnished': 1 if furnishing == 'unfurnished' else 0,
         }
-        input_df = pd.DataFrame([input_data])
-        input_df = input_df[X_train.columns]
+        input_df = pd.DataFrame([input_data], columns=X_train.columns)
         
+        # Scale the input data
         input_scaled = scaler.transform(input_df)
+        
+        # Predict the price
         prediction = model.predict(input_scaled)
         
         st.success(f"Predicted House Price: **PKR {prediction[0]:,.0f}**")
